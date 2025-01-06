@@ -1,0 +1,24 @@
+---
+# tasks file for roles/switch_route_setup
+  - name: Enable Ip routing
+    eos_config:
+      lines:
+        - "ip routing"
+    when: inventory_hostname in groups['switchs']
+    changed_when: True
+    notify: get facts config
+
+  - name: Set static routes for switchs
+    eos_static_routes:
+      config:
+        - address_families:
+          - afi: ipv4
+            routes:
+              - dest: "{{ item.dest }}"
+                next_hops:
+                  - interface: "{{ item.interface }}"
+                    forward_router_address: "{{ item.forward_router_address }}"
+    loop: "{{ routes_data[inventory_hostname] }}"
+    when: inventory_hostname in groups['switchs']
+    changed_when: True
+    notify: Gather routes

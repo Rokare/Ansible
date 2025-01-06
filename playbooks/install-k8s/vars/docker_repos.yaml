@@ -1,0 +1,50 @@
+
+docker_repo:
+  gpgkey: https://download.docker.com/linux/centos/gpg
+  file: docker-ce
+  repos:   
+
+    - name: docker-ce-stable
+      description: Docker CE Stable - $basearch
+      baseurl: https://download.docker.com/linux/centos/$releasever/$basearch/stable
+      enable: true
+
+    - name: docker-ce-stable-debuginfo
+      description: Docker CE Stable - Debuginfo $basearch
+      baseurl: https://download.docker.com/linux/centos/$releasever/debug-$basearch/stable
+      enable: false
+
+    - name: docker-ce-stable-source
+      description: Docker CE Stable - Sources
+      baseurl: https://download.docker.com/linux/centos/$releasever/source/stable
+      enable: true
+
+    - name: docker-ce-test
+      description: Docker CE Test - $basearch
+      baseurl: https://download.docker.com/linux/centos/$releasever/$basearch/test
+      enable: true
+
+    - name: docker-ce-test-debuginfo
+      description: Docker CE Test - Debuginfo $basearch
+      baseurl: https://download.docker.com/linux/centos/$releasever/debug-$basearch/test
+      enable: false
+
+    - name: docker-ce-test-source
+      description: Docker CE Test - Sources
+      baseurl: https://download.docker.com/linux/centos/$releasever/source/test
+      enable: true
+
+    - name: docker-ce-nightly
+      description: Docker CE Nightly - $basearch
+      baseurl: https://download.docker.com/linux/centos/$releasever/$basearch/nightly
+      enable: true
+
+    - name: docker-ce-nightly-debuginfo
+      description: Docker CE Nightly - Debuginfo $basearch
+      baseurl: https://download.docker.com/linux/centos/$releasever/debug-$basearch/nightly
+      enable: false
+
+    - name: docker-ce-nightly-source
+      description: Docker CE Nightly - Sources
+      baseurl: https://download.docker.com/linux/centos/$releasever/source/nightly
+      enable: false

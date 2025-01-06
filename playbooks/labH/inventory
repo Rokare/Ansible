@@ -1,0 +1,14 @@
+[switchs]
+switch[A:D]
+
+[servers]
+server[A:D]
+
+
+[eos:children]
+switchs
+
+
+[network:children]
+eos
+servers

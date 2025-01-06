@@ -1,0 +1,61 @@
+---
+# handlers file for roles/switch_route_setup
+   - name: get facts config
+     eos_facts:
+       gather_subset:
+         - config
+     register: conf
+     changed_when: True
+     notify:
+      - assert ip routing value
+
+   - name: Gather routes
+     eos_static_routes:
+      state: gathered
+     register: routes
+     notify: filter routes ipv4
+     changed_when: True
+
+
+   - name: filter routes ipv4
+     set_fact:
+       routes_ipv4: >- 
+        {{ 
+            routes.gathered[0].address_families 
+            | selectattr('afi', 'equalto', 'ipv4') 
+              | map(attribute='routes') 
+              | list | flatten 
+              | rejectattr('dest', 'equalto', '0.0.0.0/0')
+              | sort(attribute='dest', reverse=True)
+              | list 
+        }}
+     loop: "{{ routes.gathered[0].address_families }}"
+
+     notify: 
+       - assert routes
+       - print ipv4 routes
+     changed_when: True
+
+
+   - name: print ipv4 routes
+     debug:
+       msg: "{{ routes_ipv4 }}"
+
+   - name: assert routes
+     assert: 
+       that:
+        - item.0 is defined
+        - item.0.dest == item.1.dest
+        - item.0.next_hops[0].interface == item.1.interface
+        - item.0.next_hops[0].forward_router_address == item.1.forward_router_address         
+     with_together:
+      - "{{ routes_ipv4  }}"
+      - "{{ routes_data[inventory_hostname] | sort(attribute='dest', reverse=True)}} "   
+
+
+   - name: assert ip routing value
+     assert:
+       that:
+         - conf.ansible_facts.ansible_net_config is defined
+         - "'ip routing' in conf.ansible_facts.ansible_net_config"
+         - "'no ip routing' not in conf.ansible_facts.ansible_net_config"

@@ -1,0 +1,68 @@
+name: ansiblelabH
+prefix: ""
+
+topology:
+    nodes:
+        serverA:
+            kind: linux
+            image: alpine:latest
+            binds: 
+              - ./startup-configH/server.sh:/tmp/server.sh
+            exec:
+              - chmod +x /tmp/server.sh
+              - /tmp/server.sh  
+        serverB:
+            kind: linux
+            image: alpine:latest
+            binds: 
+              - ./startup-configH/server.sh:/tmp/server.sh
+            exec:
+              - chmod +x /tmp/server.sh
+              - /tmp/server.sh 
+        serverC:
+            kind: linux
+            image: alpine:latest
+            binds: 
+              - ./startup-configH/server.sh:/tmp/server.sh
+            exec:
+              - chmod +x /tmp/server.sh
+              - /tmp/server.sh 
+        serverD:
+            kind: linux
+            image: alpine:latest
+            binds: 
+              - ./startup-configH/server.sh:/tmp/server.sh
+            exec:
+              - chmod +x /tmp/server.sh
+              - /tmp/server.sh 
+        switchA:
+            kind: ceos
+            image: ceos:4.32.0F
+        switchB:
+            kind: ceos
+            image: ceos:4.32.0F
+        switchC:
+            kind: ceos
+            image: ceos:4.32.0F
+        switchD:
+            kind: ceos
+            image: ceos:4.32.0F
+    links:
+        - endpoints: ["switchA:eth3", "switchB:eth3"]
+        - endpoints: ["switchA:eth4", "switchB:eth4"]
+        - endpoints: ["switchA:eth5", "switchC:eth5"]
+        - endpoints: ["switchA:eth6", "switchD:eth6"]
+        - endpoints: ["switchA:eth7", "switchD:eth7"]
+        - endpoints: ["switchA:eth1", "serverA:eth1"]
+        - endpoints: ["switchA:eth2", "serverB:eth1"]
+        - endpoints: ["switchB:eth5", "switchD:eth5"]
+        - endpoints: ["switchB:eth6", "switchC:eth6"]
+        - endpoints: ["switchB:eth7", "switchC:eth7"]
+        - endpoints: ["switchB:eth1", "serverA:eth2"]
+        - endpoints: ["switchB:eth2", "serverB:eth2"]
+        - endpoints: ["switchC:eth3", "switchD:eth3"]
+        - endpoints: ["switchC:eth4", "switchD:eth4"]
+        - endpoints: ["switchC:eth1", "serverC:eth1"]
+        - endpoints: ["switchC:eth2", "serverD:eth1"]
+        - endpoints: ["switchD:eth1", "serverC:eth2"]
+        - endpoints: ["switchD:eth2", "serverD:eth2"]

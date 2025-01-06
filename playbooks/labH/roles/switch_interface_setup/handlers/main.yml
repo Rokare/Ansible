@@ -1,0 +1,92 @@
+---
+# handlers file for roles/switch_interface_setup
+  - name: get config
+    eos_facts:
+      gather_network_resources:
+         - interfaces
+         - l2_interfaces
+         - l3_interfaces
+         - lag_interfaces
+    register: config
+    changed_when: True
+    notify:
+      - set facts
+      - assert lag_interfaces
+
+  - name: set facts
+    set_fact:
+      l2_interfaces: >-
+        {{
+            config.ansible_facts.ansible_network_resources.l2_interfaces
+            | selectattr('name', 'in',
+                layer2_data['switch']
+                | map(attribute='name')
+                | list
+              )
+            | sort(attribute='name')
+        }}
+      l3_interfaces: >-
+        {{
+            config.ansible_facts.ansible_network_resources.l3_interfaces
+            | selectattr('name', 'in',
+                layer3_data[inventory_hostname]
+                | map(attribute='name')
+                | list
+              )
+            | sort(attribute='name', reverse=True)
+        }}
+      interfaces: "{{ config.ansible_facts.ansible_network_resources.interfaces | selectattr('name','in', interface_data['switch'].keys() | list) | sort(attribute='name')  }}"
+    changed_when: True
+    notify: 
+      - assert interfaces
+      - assert interfaces_l2
+      - show conf
+      - assert interfaces_l3
+
+  - name: show conf
+    debug:
+      msg: "{{ interfaces }}"
+
+  - name: assert interfaces_l3
+    assert: 
+      that:
+      - item.0 is defined
+      - item.0.name == item.1.name
+      - item.1.ipv4 == item.0.ipv4[0].address             
+    with_together:
+    - "{{ l3_interfaces }}"
+    - "{{ layer3_data[inventory_hostname] | sort(attribute='name', reverse=True) }}"    
+
+  - name: assert interfaces_l2
+    assert: 
+      that:
+      - item.0 is defined
+      - item.0.name == item.1.name
+      - item.1.mode == item.0.mode           
+    with_together:
+    - "{{ l2_interfaces }}"
+    - "{{ layer2_data['switch'] }}"    
+
+  - name: assert interfaces
+    assert: 
+      that:
+      - item.0 is defined
+      - item.0.name == item.1
+      - item.0.enabled == interface_data['switch'][item.1].enabled
+      # - item.0.mode == interface_data['switch'][item.1].mode           
+    with_together:
+    - "{{ interfaces }}"
+    - "{{ interface_data['switch'].keys() | list }}"    
+
+
+  - name: assert lag_interfaces
+    assert: 
+      that:
+      - item.0 is defined
+      - item.0.name == item.1.name
+      - item.0.members | map(attribute='member') | sort == item.1.members | map(attribute='name') | sort
+      - item.0.members | map(attribute='mode') | sort == item.1.members | map(attribute='mode') | sort
+    with_together:
+    - "{{ config.ansible_facts.ansible_network_resources.lag_interfaces }}"
+    - "{{ lag_data['switch'] }}"    
+

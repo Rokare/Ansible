@@ -1,0 +1,2 @@
+ansible_user: cloud_user
+ansible_connection: ssh

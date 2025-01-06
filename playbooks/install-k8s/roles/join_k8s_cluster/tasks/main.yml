@@ -1,0 +1,124 @@
+---
+- name: Ensure cluster running
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    kubeconfig: "{{ user_home_directy }}/.kube/config"
+  register: nodes_info
+  failed_when: nodes_info.resources | length == 0
+  when: inventory_hostname in groups['master']
+
+- name: Ensure and save k8s workers nodes
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    kubeconfig: "{{ user_home_directy }}/.kube/config"
+    name: "{{ hostvars[item].ansible_host }}"
+  register: workers_info
+  ignore_errors: true
+  failed_when: workers_info.resources | length == 0
+  with_items: "{{ groups['workers'] }}"
+  when:
+    - inventory_hostname in groups['master']
+    - nodes_info is success
+
+
+- name: Check if worker has already joined
+  ansible.builtin.set_fact:
+    workers_state: >-
+        {{ workers_state | default({})
+              | combine({
+                  item.1: {
+                    "has_joined": (
+                      false if item.0.item == item.1 and (item.0.resources | length) == 0 else true
+                    ),
+                     "status" : ( "NotDeployed" if (item.0.resources | length) == 0 else item.0.resources[0].status.conditions
+                      | selectattr('type', 'equalto', 'Ready')
+                      | map(attribute='reason')
+                      | list
+                      | first)
+                  }
+              })
+          }}
+  with_together:
+    - "{{ workers_info.results }}"
+    - "{{ groups['workers'] }}"
+  when: inventory_hostname in groups['master']
+
+- name: Generate join token
+  when:
+    - inventory_hostname in groups['master']
+    - nodes_info is success
+  block:
+    - name: Create token for worker node with kubeadm
+      ansible.builtin.command:
+        cmd: |
+          kubeadm token create --print-join-command
+      register: create_token_result
+      changed_when: create_token_result.rc == 0
+      when:
+        - workers_state.values() | selectattr('has_joined', 'equalto', false) | list | length > 0
+
+    - name: Set token variable
+      ansible.builtin.set_fact:
+        token: "{{ create_token_result.stdout }}"
+        workers_state: "{{ workers_state }}"
+      delegate_to: "{{ item }}"
+      delegate_facts: true
+      loop: "{{ groups['workers'] }}"
+      when:
+        - create_token_result.stdout is defined
+
+- name: Worker join
+  when:
+    - token is defined
+    - inventory_hostname in groups['workers']
+    - not workers_state[inventory_hostname]["has_joined"]
+
+  block:
+    - name: Using kubeadm join
+      ansible.builtin.command:
+        cmd: "{{ token }}"
+      register: join
+      changed_when: join.rc == 0
+
+## put some task that check node has joined the cluster from master
+## with wait or until or useless ?
+    # - name:
+
+  rescue:
+    - name: Reset K8s
+      ansible.builtin.import_role:
+        name: reset_k8s
+
+
+- name: Clean and delete worker node if status == KubeletNotReady
+  when:
+    - token is defined
+    - inventory_hostname in groups['workers']
+    - workers_state.values() | selectattr('status', 'equalto', 'KubeletNotReady') | list | length > 0
+    - workers_state[inventory_hostname].status == "KubeletNotReady"
+  block:
+    - name: Drain node by force
+      kubernetes.core.k8s_drain:
+        state: drain
+        name: "{{ hostvars[inventory_hostname].ansible_host }}"
+        delete_options:
+          force: true
+
+    - name: Delete a Kubernetes node
+      kubernetes.core.k8s:
+        definition:
+          api_version: v1
+          kind: Node
+          name: "{{ hostvars[inventory_hostname].ansible_host }}"
+          state: absent
+      register: delete_node_result
+
+    - name: Debug node deletion result
+      ansible.builtin.debug:
+        var: delete_node_result
+
+    - name: Reset K8s
+      ansible.builtin.import_role:
+        name: reset_k8s

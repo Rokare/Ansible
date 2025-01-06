@@ -1,0 +1,28 @@
+---
+# tasks file for roles/server_setup
+  - name: Set Ip for the servers
+    community.general.nmcli: 
+      conn_name: "{{ item.name }}"
+      ifname: "{{ item.name }}"
+      ip4: "{{ item.ipv4 }}"
+      state: present
+      type: ethernet
+      autoconnect: true
+      conn_reload: true
+    loop: "{{ layer3_data[inventory_hostname]}}"
+    notify: Pause for 2 seconds
+    changed_when: true
+    when: inventory_hostname in groups['servers']
+
+
+  - name: Set routes for the servers
+    community.general.nmcli: 
+      conn_name: "{{ item.name }}"
+      state: present
+      type: ethernet
+      conn_reload: true
+      routes4_extended: "{{ item.routes }}"
+    loop: "{{ routes_data[inventory_hostname]}}"
+    notify: Pause for 2 seconds
+    changed_when: true
+    when: inventory_hostname in groups['servers']

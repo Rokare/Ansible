@@ -1,0 +1,71 @@
+---
+# handlers file for roles/switch_vlan_setup
+  - name: Gather vlans facts 
+    eos_vlans:
+      state: gathered
+    register: result_vlans
+    notify:
+      - assert vlans are present on switchs
+    changed_when: true
+    when: inventory_hostname in groups['switchs']
+
+  - name: assert vlans are present on switchs
+    assert:
+      that:
+      - item.1 != ""
+      - item.0 == item.1.vlan_id 
+      - item.1.state == "active"
+    with_together:
+    - "{{ vlans_id }}"
+    - "{{ result_vlans.gathered }}"
+    when: inventory_hostname in groups['switchs']
+
+  - name: Gather L2 interface facts
+    eos_l2_interfaces:
+      state: gathered
+    register: l2_interfaces
+    changed_when: true
+    notify: 
+      - Filter interfaces
+    when: inventory_hostname in groups['switchs']
+
+
+
+  - name: Filter interfaces 
+    set_fact:
+      access_interfaces: "{{ l2_interfaces.gathered | selectattr('access', 'defined') | sort(attribute='name') | last }}"
+      trunk_interfaces: "{{ l2_interfaces.gathered | selectattr('trunk', 'defined') | sort(attribute='name') | last }}"
+    changed_when: true
+    notify: 
+      - assert vlans value
+
+
+  - name: assert access interface
+    listen: assert vlans value
+    assert: 
+      that:
+      - item.1 != ""
+      - item.0.name == item.1.name
+      - item.1.access is defined
+      - item.0.access.vlan == item.1.access.vlan
+    with_together: 
+      - "{{ vlans_access[inventory_hostname] }}"
+      - "{{ access_interfaces }}"
+    when: 
+      - inventory_hostname in groups['switchs']
+      - item.1.access is defined
+
+  - name: assert trunk interface
+    listen: assert vlans value
+    assert: 
+      that:
+      - item.1 != ""
+      - item.0.name == item.1.name
+      - item.1.trunk is defined
+      - item.0.trunk.trunk_allowed_vlans == item.1.trunk.trunk_allowed_vlans[0]
+    with_together: 
+      - "{{ vlans_trunk[inventory_hostname] }}"
+      - "{{ trunk_interfaces }}"
+    when: 
+      - inventory_hostname in groups['switchs']
+      - item.1.trunk is defined

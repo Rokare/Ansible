@@ -1,0 +1,26 @@
+---
+# tasks file for roles/check_environment
+
+- name: Check if Python3 is installed
+  ansible.builtin.command: python3 --version
+  register: python_version_check
+  changed_when: python_version_check.rc != 0 # <- Uses the return code to define when the task has changed.
+  ignore_errors: true
+
+- name: Validate Python version
+  ansible.builtin.fail:
+    msg: "Python 3.7 or newer is required. Current version: {{ python_version_check.stdout.split()[1] if python_version_check.stdout else 'Unknown' }}"
+  when: python_version_check.rc != 0 or (python_version_check.stdout.split()[1] | regex_replace('\\.', '', 1) | int < 37)
+
+- name: Get $HOME
+  ansible.builtin.command:
+    cmd: echo $HOME
+  register: home_result
+  vars:
+    ansible_become_user: "{{ user_become }}"
+  changed_when: home_result.rc != 0
+
+- name: Set $HOME var
+  ansible.builtin.set_fact:
+    user_home_directy: "{{ home_result.stdout }}"
+  when: home_result is success

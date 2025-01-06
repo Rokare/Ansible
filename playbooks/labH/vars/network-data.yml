@@ -1,0 +1,306 @@
+layer3_data:
+  switchA:
+    - name: Vlan100
+      ipv4: "10.10.0.1/29"
+    - name: Vlan200
+      ipv4: "10.10.3.1/30"
+    - name: Port-Channel10
+      ipv4: "10.0.6.1/30"
+    - name: Port-Channel20
+      ipv4: "10.0.8.1/30"
+
+  switchB:
+    - name: Vlan100
+      ipv4: "10.10.2.2/30"
+    - name: Vlan200
+      ipv4: "10.10.1.1/29"
+    - name: Port-Channel10
+      ipv4: "10.0.6.2/30"
+    - name: Port-Channel20
+      ipv4: "10.0.9.1/30"
+
+  switchC:
+    - name: Vlan100
+      ipv4: "10.10.0.3/29"
+    - name: Vlan200
+      ipv4: "10.10.5.2/30"
+    - name: Port-Channel10
+      ipv4: "10.0.7.1/30"
+    - name: Port-Channel20
+      ipv4: "10.0.9.2/30"
+
+  switchD:
+    - name: Vlan100
+      ipv4: "10.10.4.2/30"
+    - name: Vlan200
+      ipv4: "10.10.1.3/29"
+    - name: Port-Channel10
+      ipv4: "10.0.7.2/30"
+    - name: Port-Channel20
+      ipv4: "10.0.8.2/30"
+
+  serverA:
+    - name: eth1
+      ipv4: "10.10.0.2/29"
+    - name: eth2
+      ipv4: "10.10.2.1/30"
+
+  serverB:
+    - name: eth1
+      ipv4: "10.10.3.2/30"
+    - name: eth2
+      ipv4: "10.10.1.2/29"
+
+  serverC:
+    - name: eth1
+      ipv4: "10.10.0.4/29"
+    - name: eth2
+      ipv4: "10.10.4.1/30"
+
+  serverD:
+    - name: eth1
+      ipv4: "10.10.5.1/30"
+    - name: eth2
+      ipv4: "10.10.1.4/29"
+
+
+routes_data:
+  switchA:
+    - dest: "10.10.4.0/30"
+      admin_distance: 20
+      forward_router_address: "10.0.8.2"
+      interface: Port-Channel20
+    - dest: "10.10.1.0/29"
+      admin_distance: 20
+      forward_router_address: "10.0.8.2"
+      interface: Port-Channel20      
+
+  switchB:
+    - dest: "10.10.0.0/29"
+      forward_router_address: "10.0.9.2"
+      interface: Port-Channel20
+      admin_distance: 20
+    - dest: "10.10.5.0/30"
+      forward_router_address: "10.0.9.2"
+      interface: Port-Channel20
+      admin_distance: 20
+
+
+  switchC:
+    - dest: "10.10.0.0/29"
+      forward_router_address: "10.0.9.1"
+      interface: Port-Channel20
+      admin_distance: 20
+    - dest: "10.10.2.0/30"
+      forward_router_address: "10.0.9.1"
+      interface: Port-Channel20
+      admin_distance: 20
+
+  switchD:
+    - dest: "10.10.0.0/29"
+      forward_router_address: "10.0.8.1"
+      interface: Port-Channel20
+      admin_distance: 20
+
+    - dest: "10.10.3.0/30"
+      forward_router_address: "10.0.8.1"
+      interface: Port-Channel20
+      admin_distance: 20
+
+
+  serverA:
+    - name: eth1
+      routes: 
+        - ip: "10.10.4.0/30"
+          next_hop: "10.10.0.1"
+          metric: 200
+    - name: eth2
+      routes: 
+        - ip: "10.10.0.0/29"
+          next_hop: "10.10.2.2"
+          metric: 200
+
+  serverB:
+    - name: eth1
+      routes:
+        - ip: "10.10.1.0/29"
+          next_hop: "10.10.3.1"
+          metric: 200
+    - name: eth2
+      routes:
+        - ip: "10.10.5.0/30"
+          next_hop: "10.10.1.1"
+          metric: 200
+
+  serverC:
+    - name: eth1
+      routes:
+        - ip: "10.10.2.0/30"
+          next_hop: "10.10.0.3"
+          metric: 200
+    - name: eth2
+      routes:
+        - ip: "10.10.0.0/29"
+          next_hop: "10.10.4.2"
+          metric: 200
+
+  serverD:
+    - name: eth1
+      routes:
+        - ip: "10.10.1.0/29"
+          next_hop: "10.10.5.2"
+          metric: 200
+    - name: eth2
+      routes:
+        - ip: "10.10.3.0/30"
+          next_hop: "10.10.1.3"
+          metric: 200
+
+
+lag_data:
+  switch:
+    - name: Port-Channel10
+      members: 
+      - name: Ethernet3
+        mode: "on"
+      - name: Ethernet4
+        mode: "on"
+    - name: Port-Channel20
+      members: 
+      - name: Ethernet6
+        mode: "on"
+      - name: Ethernet7
+        mode: "on"
+
+layer2_data:
+  switch:
+      - name: Ethernet3
+        mode: "trunk"
+      - name: Ethernet4
+        mode: "trunk"
+      - name: Ethernet6
+        mode: "trunk"
+      - name: Ethernet7
+        mode: "trunk"
+
+vlans_id:
+  - 100
+  - 200
+
+vlans_trunk:
+  switchA:
+    - name: Port-Channel10
+      mode: trunk
+      trunk: 
+        trunk_allowed_vlans: "100-200"
+    - name: Port-Channel20
+      mode: trunk
+      trunk: 
+        trunk_allowed_vlans: "100-200"
+
+  switchB:
+    - name: Port-Channel20
+      mode: trunk
+      trunk:
+        trunk_allowed_vlans: "100-200"
+    - name: Port-Channel10
+      mode: trunk
+      trunk: 
+        trunk_allowed_vlans: "100-200"
+
+  switchC:
+    - name: Port-Channel10
+      mode: trunk
+      trunk: 
+        trunk_allowed_vlans: "100-200"
+    - name: Port-Channel20
+      mode: trunk
+      trunk:
+        trunk_allowed_vlans: "100-200"
+
+  switchD:
+    - name: Port-Channel10
+      mode: trunk
+      trunk: 
+        trunk_allowed_vlans: "100-200"
+    - name: Port-Channel20
+      mode: trunk
+      trunk:
+        trunk_allowed_vlans: "100-200"
+
+vlans_access:
+  switchA:
+    - name: Ethernet1
+      mode: access
+      access:
+        vlan: 100
+    - name: Ethernet2
+      mode: access
+      access:
+        vlan: 200
+    - name: Ethernet5
+      mode: access
+      access:
+        vlan: 100
+
+  switchB:
+    - name: Ethernet1
+      mode: access
+      access:
+        vlan: 100
+    - name: Ethernet2
+      mode: access
+      access:
+        vlan: 200
+    - name: Ethernet5
+      mode: access
+      access:
+        vlan: 200
+        
+  switchC:
+    - name: Ethernet1
+      mode: access
+      access:
+        vlan: 100
+    - name: Ethernet2
+      mode: access
+      access:
+        vlan: 200
+    - name: Ethernet5
+      mode: access
+      access:
+        vlan: 100
+
+  switchD:
+    - name: Ethernet1
+      mode: access
+      access:
+        vlan: 100
+    - name: Ethernet2
+      mode: access
+      access:
+        vlan: 200
+    - name: Ethernet5
+      mode: access
+      access:
+        vlan: 200
+
+
+interface_data:
+  switch:
+    Ethernet1:
+      mode: layer2
+      enabled: true
+    Ethernet2:
+      mode: layer2
+      enabled: true
+    Ethernet5:
+      mode: layer2
+      enabled: true
+    Port-Channel10:
+      mode: layer3
+      enabled: true
+    Port-Channel20:
+      mode: layer3
+      enabled: true
+

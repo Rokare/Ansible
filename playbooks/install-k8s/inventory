@@ -1,0 +1,10 @@
+[workers]
+worker0[1:2]
+
+[master]
+master01
+
+[network:children]
+workers
+master
+

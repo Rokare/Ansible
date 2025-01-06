@@ -1,0 +1,25 @@
+---
+- name: verify connectivity end-to-end
+  hosts: servers
+  vars_files:
+    - vars/ping-srcdst.yml
+  tasks:
+
+    - name: run ping commands on servers
+    # this runs a ping command across the link
+      shell:
+        cmd: ping -c 4 -I {{ item.src }} {{ item.dst }} 
+      register: ping_result
+      loop: "{{ ping_data[inventory_hostname] }}"
+
+    - name: looped assertion of ping results from Eos access layer device
+      assert:
+        that: "', 0% packet loss' in item.stdout[1]"
+      loop: "{{ ping_result.results }}"
+
+    # - name: prime Aoscx arp cache
+    #   aoscx_command:
+    #     commands:
+    #       - ping {{ item.dst }} source {{ item.src }} repetitions 1
+    #   loop: "{{ ping_data[inventory_hostname] }}"
+    #   when: ansible_network_os == "arubanetworks.aoscx.aoscx"

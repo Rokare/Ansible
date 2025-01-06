@@ -1,0 +1,68 @@
+---
+# tasks file for roles/init_k8s_cluster
+- name: Ensure Kubernetes nodes are accessible
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    kubeconfig: "{{ user_home_directy }}/.kube/config"
+  register: nodes_info
+  ignore_errors: true
+  failed_when: nodes_info.resources | length == 0
+  when: inventory_hostname in groups['master']
+
+- name: Init Cluster
+  when:
+    - inventory_hostname in groups['master']
+    - nodes_info.failed
+  block:
+    - name: Initialize the Kubernetes cluster on the control plane
+      ansible.builtin.command:
+        cmd: |
+          sudo kubeadm init --pod-network-cidr 192.168.0.0/16 --kubernetes-version 1.32.0
+      register: init_result # <- Registers the command output.
+      changed_when: init_result.rc != 0 # <- Uses the return code to define when the task has changed.
+
+    - name: Create kube directory
+      ansible.builtin.file:
+        path: "{{ user_home_directy }}/.kube"
+        state: directory
+        mode: '0755'
+        owner: "{{ k8s_user_config }}"
+        group: "{{ k8s_group_config }}"
+        recurse: true
+
+    - name: Copy k8s conf and change owner of k8s config file
+      ansible.builtin.copy:
+        src: /etc/kubernetes/admin.conf
+        dest: "{{ user_home_directy }}/.kube/config"
+        remote_src: true
+        owner: "{{ k8s_user_config }}"
+        group: "{{ k8s_group_config }}"
+        mode: '0600'
+
+
+    - name: Wait for the Kubernetes nodes to be ready
+      ansible.builtin.command:
+        cmd: kubectl get nodes
+      register: k8s_nodes
+      changed_when: k8s_nodes.rc != 0
+      until: k8s_nodes.rc == 0
+      retries: 10
+      delay: 3
+      vars:
+        ansible_become_user: "{{ user_become }}"
+
+    - name: Initialize cluster network with calico
+      ansible.builtin.command:
+        cmd: |
+          kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.1/manifests/calico.yaml
+      register: output # <- Registers the command output.
+      changed_when: output.rc != 0 # <- Uses the return code to define when the task has changed.
+      vars:
+        ansible_become_user: "{{ user_become }}"
+
+  rescue:
+
+    - name: Reset K8s
+      ansible.builtin.import_role:
+        name: reset_k8s

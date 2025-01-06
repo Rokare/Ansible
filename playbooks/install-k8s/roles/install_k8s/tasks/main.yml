@@ -1,0 +1,33 @@
+---
+# tasks file for roles/install_k8s
+- name: Add repository for K8s
+  ansible.builtin.yum_repository:
+    name: kubernetes
+    description: Kubernetes
+    file: kubernetes
+    baseurl: https://pkgs.k8s.io/core:/stable:/v1.32/rpm/
+    gpgcheck: true
+    enabled: true
+    gpgkey: https://pkgs.k8s.io/core:/stable:/v1.32/rpm/repodata/repomd.xml.key
+    exclude: ["kubelet", "kubeadm", "kubectl", "cri-tools", "kubernetes-cni"]
+
+
+- name: Install K8S
+  ansible.builtin.dnf:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+      - python3-kubernetes ## Python client for k8s API
+    state: present
+    use_backend: "dnf4"
+    disable_excludes: kubernetes
+
+- name: Make sure kubelet is running and enable it
+  ansible.builtin.systemd:
+    state: started
+    name: kubelet
+    enabled: true
+
+## can be replace by a sed:
+##  sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab

@@ -1,0 +1,168 @@
+---
+# tasks file for roles/prepare_k8s_install
+
+- name: Create the configuration file for containerd
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/containerd.conf
+    content: |
+      overlay
+      br_netfilter
+    owner: root
+    group: root
+    mode: '0644'
+    force: false
+  register: copy_conf_containerd
+
+- name: Load modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop: ["overlay", "br_netfilter"]
+  when: copy_conf_containerd is success
+
+- name: Set the system configurations for Kubernetes networking
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: 1
+    state: present
+    reload: true
+    sysctl_set: true
+    sysctl_file: /etc/sysctl.d/99-kubernetes-cri.conf
+  loop:
+    - net.bridge.bridge-nf-call-iptables
+    - net.ipv4.ip_forward
+    - net.bridge.bridge-nf-call-ip6tables
+
+- name: Install dnf-plugins-core, epel-release and tools
+  ansible.builtin.dnf:
+    name:
+      - vim
+      - net-tools
+      - bash-completion
+      - dnf-plugins-core
+      - epel-release
+    state: present
+    use_backend: "dnf4"
+
+- name: Add repository for containerd
+  ansible.builtin.yum_repository:
+    name: "{{ item.name }}"
+    description: "{{ item.description }}"
+    baseurl: "{{ item.baseurl }}"
+    file: "{{ docker_repo.file }}"
+    enabled: "{{ item.enable }}"
+    gpgcheck: true
+    gpgkey: "{{ docker_repo.gpgkey }}"
+  loop: "{{ docker_repo.repos }}"
+
+- name: Install containerd
+  ansible.builtin.dnf:
+    name: containerd.io
+    state: present
+    use_backend: "dnf4"
+
+
+# ## Usefule ?
+
+# - name: Ensure containerd configuration directory exists
+#   ansible.builtin.file:
+#     path: /etc/containerd
+#     state: directory
+#     mode: '0755'
+#     recurse: true
+
+
+- name: Check if the containerd configuration file exists
+  ansible.builtin.stat:
+    path: /etc/containerd/config.toml
+  register: config_exist
+
+- name: Recover config file
+  when:
+    - config_exist.stat.exists
+  block:
+    - name: Get config file
+      ansible.builtin.slurp:
+        src: /etc/containerd/config.toml
+      register: config
+
+    - name: Check if regex matches in a file using lookup
+      ansible.builtin.set_fact:
+        has_default_config: >-
+          {{
+          false if
+          (config["content"] | b64decode)
+          | ansible.builtin.regex_search('SystemdCgroup = true', multiline=True, ignorecase=True)
+          else true
+          }}
+      when: config is defined
+
+
+- name: Generate containerd config and apply them
+  when:
+    - has_default_config
+  block:
+    - name: Generate default config
+      ansible.builtin.command:
+        cmd: containerd config default
+      register: containerd_default_config
+      changed_when: true
+      when: has_default_config
+
+    - name: Save the containerd configuration to /etc/containerd/config.toml
+      ansible.builtin.copy:
+        dest: /etc/containerd/config.toml
+        content: "{{ containerd_default_config.stdout }}"
+        mode: "0755"
+      when: containerd_default_config is defined
+
+    - name: Update sandbox_image in containerd configuration
+      ansible.builtin.lineinfile:
+        path: /etc/containerd/config.toml
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        backrefs: true
+      with_items:
+      ## TO ADD or not ??
+        # - { regexp: '^.*sandbox_image = "registry.k8s.io/pause:3.8".*', line: '    sandbox_image = "registry.k8s.io/pause:3.10"'}
+        # - { regexp: '^.*snapshotter = "overlayfs".*', line: '      snapshotter = "native"'}
+        - { regexp: "(\\s*)SystemdCgroup \\= false", line: '\1SystemdCgroup = true'}
+
+    - name: Restart containerd and enable it
+      ansible.builtin.systemd:
+        name: containerd
+        state: restarted
+
+
+- name: Make sure containerd is running and enabled
+  ansible.builtin.systemd:
+    state: started
+    enabled: true
+    name: containerd
+
+- name: Disable swap
+  ansible.builtin.command:
+    cmd: sudo swapoff -a
+  register: output
+  changed_when: output.rc != 0
+
+
+- name: Enable IP forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    state: present
+    reload: true
+
+- name: Put SELinux in permissive mode, logging actions that would be blocked.
+  ansible.posix.selinux:
+    policy: targeted
+    state: permissive
+
+- name: Active selinux permisse mode
+  ansible.builtin.lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX=enforcing$'
+    line: 'SELINUX=permissive'
+    state: present

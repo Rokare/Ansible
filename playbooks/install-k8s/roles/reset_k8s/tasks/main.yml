@@ -1,0 +1,29 @@
+---
+# tasks file for roles/reset_k8s
+- name: Reset cluster with kubeadm
+  ansible.builtin.command:
+    cmd: sudo kubeadm reset -f
+  register: output # <- Registers the command output.
+  changed_when: output.rc != 0
+
+- name: Do clean up k8s folder
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: [
+    "{{ user_home_directy }}/.kube",
+    "/var/lib/etcd", "/etc/cni/net.d",
+    "/etc/kubernetes", "/var/lib/kubelet",
+    "/var/lib/cni", "/var/run/kubernetes"
+  ]
+
+- name: Flush iptables rules and chains
+  ansible.builtin.iptables:
+    table: "{{ item.table }}"
+    chain: "{{ item.chain | default(omit) }}"
+    flush: true
+  loop:
+    - { table: filter }
+    - { table: nat }
+    - { table: mangle }
+    - { table: filter, chain: INPUT }

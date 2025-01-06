@@ -1,0 +1,47 @@
+---
+# handlers file for roles/server_setup
+
+  - name: Pause for 2 seconds
+    ansible.builtin.pause:
+      seconds: 2
+    notify: 
+      - check ip assignement
+      - check routes
+    changed_when: true
+    when: inventory_hostname in groups['servers']
+
+  - name: check ip assignement
+    shell:
+      cmd: |
+        ip addr show {{ item.name }} | grep {{ item.ipv4| ansible.utils.ipaddr('address') }}
+    register: ip_check 
+    notify: assert ip has been correctly set
+    loop:  "{{ layer3_data[inventory_hostname] }}" 
+    when: inventory_hostname in groups['servers']
+
+  - name: assert ip has been correctly set
+    assert:
+      that:
+      - item.1 != ""
+      - item.0.ipv4 in item.1.stdout 
+    with_together:
+    - "{{ layer3_data[inventory_hostname] }}"
+    - "{{ ip_check.results }}"
+    when: inventory_hostname in groups['servers']
+
+  - name: check routes
+    shell:
+      cmd: |
+        ip route
+    register: ip_routes 
+    notify: 
+      - assert ip routes
+    when: inventory_hostname in groups['servers']
+
+  - name: assert ip routes
+    assert:
+      that: 
+        - item.0.name in ip_routes.stdout and item.1.next_hop in ip_routes.stdout
+    with_subelements:
+     - "{{ routes_data[inventory_hostname] }}"
+     - routes

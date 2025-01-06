@@ -1,0 +1,35 @@
+---
+# tasks file for roles/switch_vlan_setup
+
+  - name: Create Vlans on routers
+    arista.eos.eos_vlans:
+      config:
+        - vlan_id: "{{ item }}"
+          state: active
+    loop: "{{ vlans_id }}"
+    notify: Gather vlans facts
+    changed_when: true
+    when: inventory_hostname in groups['switchs']
+
+  - name: Set interface access vlans
+    eos_l2_interfaces:
+      config:
+        - name: "{{ item.name }}"
+          mode: "{{ item.mode }}"
+          access:
+            vlan: "{{ item.access.vlan }}"
+    loop: "{{ vlans_access[inventory_hostname] }}"
+    notify: Gather L2 interface facts
+    changed_when: True
+    when: inventory_hostname in groups['switchs']
+
+  - name: Set interface trunk vlans
+    eos_l2_interfaces:
+      config:
+        - name: "{{ item.name }}"
+          mode: "{{ item.mode }}"
+          trunk:
+            trunk_allowed_vlans: "{{ item.trunk.trunk_allowed_vlans }}"
+    loop: "{{ vlans_trunk[inventory_hostname] }}"
+    when: inventory_hostname in groups['switchs']
+

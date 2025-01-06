@@ -1,0 +1,48 @@
+---
+# tasks file for roles/switch_interface_setup
+  - name: Enable interfaces
+    eos_interfaces:
+      config:
+        - name: "{{ item.key }}"
+          enabled: "{{ item.value['enabled']}}"
+          mode: "{{ item.value['mode']}}" 
+    with_dict: "{{ interface_data['switch']}}"
+    when: inventory_hostname in groups['switchs']
+    changed_when: True
+    notify: get config
+
+  - name: Set address on interfaces
+    eos_l3_interfaces:
+      config:
+        - name: "{{ item.name }}"
+          ipv4:
+            - address: "{{ item.ipv4 }}"
+    loop: "{{ layer3_data[inventory_hostname] }}"
+    when: inventory_hostname in groups['switchs']
+    changed_when: True
+    notify: get config
+
+  - name: Enable trunk mode on interfaces
+    eos_l2_interfaces:
+      config:
+        - name: "{{ item.name }}"
+          mode: "{{ item.mode }}"
+    loop: "{{ layer2_data['switch'] }}"
+    when: inventory_hostname in groups['switchs']
+    notify: get config
+    changed_when: True
+
+  - name: Set members of Lag interfaces
+    eos_lag_interfaces:
+      config:
+      - name: "{{ item.0.name}}"
+        members:
+          - member: "{{ item.1.name}}"
+            mode: "{{ item.1.mode}}"
+    with_subelements: 
+      - "{{ lag_data['switch'] }}"
+      - members
+    when: inventory_hostname in groups['switchs']
+    notify: get config
+    changed_when: True
+

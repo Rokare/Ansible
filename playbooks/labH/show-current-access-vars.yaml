@@ -1,0 +1,13 @@
+---
+- name: expose the current access vars
+  hosts: network
+
+  tasks: 
+    - name: show the value of key variable
+      debug:
+        msg: >
+          host: {{ inventory_hostname }},
+          con: {{ ansible_connection }},
+          nos: {{ ansible_network_os }},
+          user: {{ ansible_user }},
+          pass: {{ ansible_ssh_pass }}

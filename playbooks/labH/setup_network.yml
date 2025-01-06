@@ -1,0 +1,27 @@
+---
+- name: set up network
+  hosts: network
+  become: yes
+  vars_files:
+    - vars/network-data.yml
+
+  roles:
+    - roles/server_setup
+    - roles/switch_interface_setup
+    - roles/switch_vlan_setup
+    - roles/switch_route_setup
+
+  
+
+  pre_tasks:
+    - name: Check if Python3 is installed
+      command: python3 --version
+      register: python_version_check
+      ignore_errors: ye
+
+    - name: Validate Python version
+      fail:
+        msg: "Python 3.7 or newer is required. Current version: {{ python_version_check.stdout.split()[1] if python_version_check.stdout else 'Unknown' }}"
+      when: python_version_check.rc != 0 or (python_version_check.stdout.split()[1] | regex_replace('\\.', '', 1) | int < 37)
+
+

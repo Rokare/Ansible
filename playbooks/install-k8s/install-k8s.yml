@@ -1,0 +1,24 @@
+- name: Install K8s cluster
+  hosts: network
+  become: true
+  vars_files:
+    - vars/docker_repos.yaml
+    - vars/vars_file.yaml
+  vars:
+    ansible_become_password: "{{ ansible_password }}"
+
+  roles:
+    - prepare_k8s_install
+    - install_k8s
+    - init_k8s_cluster
+    - join_k8s_cluster
+
+  pre_tasks:
+    - name: Chek Environment
+      ansible.builtin.import_role:
+        name: check_environment
+
+  tasks:
+
+    - name: Force all notified handlers to run at this point, not waiting for normal sync points
+      ansible.builtin.meta: flush_handlers

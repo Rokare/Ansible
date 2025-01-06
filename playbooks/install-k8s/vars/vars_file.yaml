@@ -1,0 +1,3 @@
+k8s_user_config: cloud_user
+k8s_group_config: cloud_user
+user_become: cloud_user
